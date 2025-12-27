@@ -5,6 +5,9 @@ from baseapp.models import *
 from config.settings import AUTH_USER_MODEL , EXPIRATION_EMAIL , EXPIRATION_PHONE
 from datetime import datetime , timedelta
 import random
+import uuid
+from rest_framework_simplejwt.tokens import RefreshToken
+
 
 ORDINARY_USER , MANAGER , ADMIN = ('ordinary_user' , 'manager' , 'admin')
 NEW , CODE_VERIFIED , DONE , PHOTO_DONE = ('new' , 'code_verified' , 'done' , 'photo_done')
@@ -51,6 +54,48 @@ class User(AbstractUser , BaseModel):
 
             return code
       
+      def check_username(self):
+            if not self.username:
+                  temp_username = f'username{str(uuid.uuid4).split('-')[-1]}'
+                  while User.objects.filter(username = temp_username).exists():
+                        temp_username = f"{temp_username}{random.randint(0 , 9)}"
+
+                  self.username = temp_username
+
+      def check_pass(self):
+            if not self.password:
+                  temp_pass = f"pass{str(uuid.uuid4).split('-')[0]}"
+                  self.password = temp_pass
+
+      def hashing_pass(self):
+            if not self.password.startswith('pbkdf2_sha256'):
+                  self.set_password(self.password)
+
+      def check_email(self):
+            if self.email:
+                  normalize_email = self.email.lower()
+                  self.email = normalize_email
+
+      def token(self):
+          refresh = RefreshToken.for_user(self)
+          data = {
+                'access' : str(refresh.access_token),
+                'refresh_token' : str(refresh)
+          }
+          return data
+      
+      def clean(self):
+            self.check_email
+            self.check_username
+            self.check_pass
+            self.hashing_pass
+
+      def save(self , *args , **kwargs):
+            self.clean
+            return super(User , self).save(*args , **kwargs)
+      
+
+      
 
 class CodeVerification(BaseModel):
       VERIFY_TYPE = (
@@ -60,7 +105,7 @@ class CodeVerification(BaseModel):
 
       code = models.CharField(max_length=4)
       verify_type = models.CharField(max_length=29, choices=VERIFY_TYPE)
-      user = models.ForeignKey(AUTH_USER_MODEL , on_delete=models.CASCADE)
+      user = models.ForeignKey(AUTH_USER_MODEL , on_delete=models.CASCADE , related_name='verify_code')
       expiration_time = models.DateTimeField()
       confirmed = models.BooleanField(default=False)
 

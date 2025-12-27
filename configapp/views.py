@@ -17,3 +17,10 @@ import random
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.conf import settings
+from rest_framework.generics import CreateAPIView
+
+
+class SignUpView(CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = SignUpSerializer
+    permission_classes = [permissions.AllowAny]
