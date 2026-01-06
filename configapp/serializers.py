@@ -34,8 +34,11 @@ class SignUpSerializer(serializers.ModelSerializer):
        if user.auth_type == VIA_EMAIL:
            code = user.verify_code(VIA_EMAIL)
            send_email_code(user.email , code)
+           print(code)
        elif user.auth_type == VIA_PHONE:
             code = user.verify_code(VIA_PHONE)
+            print(code)
+           
             pass
        else:
            data = {
@@ -62,7 +65,7 @@ class SignUpSerializer(serializers.ModelSerializer):
                 'auth_type' : VIA_EMAIL,
                 'email' : user_input
             }
-        elif user_input == 'phone':
+        elif user_input_type == 'phone':
             data ={
                 'auth_type' : VIA_PHONE,
                 'phone_number' : user_input
@@ -78,12 +81,18 @@ class SignUpSerializer(serializers.ModelSerializer):
         return data
     
     def validate_email_phone_number(self , value):
-
-        input_type = email_or_phone(value)
-
-        if input_type not in ['email', 'phone']:
-            raise ValidationError('Telefon raqam yoki email notogri')
-        
+        value = value.lower()
+        if value and User.objects.filter(email = value).exists():
+            raise ValidationError("Bu email allaqachon mavjud")
+        elif value and User.objects.filter(phone_number = value).exists():
+            raise ValidationError('Bu telefon raqam allaqchon mavjud')
         return value
+    
+    def to_representation(self, instance):
+        data = super(SignUpSerializer , self).to_representation(instance)
+        data.update(instance.token())
+        return data
 
 
+class VerifyCodeSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=6)

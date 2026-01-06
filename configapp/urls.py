@@ -53,5 +53,5 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'), 
     path('', include(router.urls)), 
     path('signup/' , SignUpView.as_view()),
-   
+    path('code-verify/' , VerifyCode.as_view()),   
 ]

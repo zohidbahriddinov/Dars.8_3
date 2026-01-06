@@ -7,7 +7,7 @@ from datetime import datetime , timedelta
 import random
 import uuid
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from baseapp.email import *
 
 ORDINARY_USER , MANAGER , ADMIN = ('ordinary_user' , 'manager' , 'admin')
 NEW , CODE_VERIFIED , DONE , PHOTO_DONE = ('new' , 'code_verified' , 'done' , 'photo_done')
@@ -85,15 +85,14 @@ class User(AbstractUser , BaseModel):
           return data
       
       def clean(self):
-            self.check_email
-            self.check_username
-            self.check_pass
-            self.hashing_pass
+            self.check_email()
+            self.check_username()
+            self.check_pass()
+            self.hashing_pass()
 
       def save(self , *args , **kwargs):
-            self.clean
+            self.clean()
             return super(User , self).save(*args , **kwargs)
-      
 
       
 
@@ -105,7 +104,7 @@ class CodeVerification(BaseModel):
 
       code = models.CharField(max_length=4)
       verify_type = models.CharField(max_length=29, choices=VERIFY_TYPE)
-      user = models.ForeignKey(AUTH_USER_MODEL , on_delete=models.CASCADE , related_name='verify_code')
+      user = models.ForeignKey(AUTH_USER_MODEL , on_delete=models.CASCADE , related_name='verify_codes')
       expiration_time = models.DateTimeField()
       confirmed = models.BooleanField(default=False)
 
