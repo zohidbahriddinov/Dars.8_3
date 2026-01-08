@@ -17,8 +17,8 @@ import random
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.conf import settings
-from rest_framework.generics import CreateAPIView
-from rest_framework.views import APIView
+from rest_framework.generics import CreateAPIView , UpdateAPIView
+from rest_framework.views import *
 from datetime import datetime
 
 class SignUpView(CreateAPIView):
@@ -55,7 +55,8 @@ class VerifyCode(APIView):
 
             raise ValidationError(data)
     
-        verify.confirmed = True
+        else:
+           verify.update(confirmed = True)
 
         if user.auth_status == NEW:
             user.auth_status = CODE_VERIFIED
@@ -63,3 +64,66 @@ class VerifyCode(APIView):
         return True
     
 
+
+class NewCodeVerify(APIView):
+    permission_classes = [permissions.IsAuthenticated,]
+
+    def get(self, *args , **kwargs):
+        user = self.request.user
+        self.chect_verify_code(user)
+        if user.auth_type == VIA_EMAIL:
+            code = user.verify_code(VIA_EMAIL)
+            send_email_code(user.email , code)
+            print(code)
+        elif user.auth_type == VIA_PHONE:
+            code = user.verify_code(VIA_EMAIL)
+            print(code)
+
+        data = {
+            'success': True,
+            'message' : 'Yangi kod yuborildi'
+        }
+
+        return Response(data)
+    
+    @staticmethod
+    def chect_verify_code(user):
+        verify = user.verify_codes.filter(confirmed = False , expiration_time__gte = datetime.now())
+        if verify.exists():
+            data = {
+                'success' : False,
+                'message' : 'Sizda hali active code bor'
+            }
+
+            raise ValidationError(data)
+        
+        return True
+    
+class ChangeUserInfo(UpdateAPIView):
+     permission_classes = [permissions.IsAuthenticated]
+     queryset  = User.objects.all()
+     serializer_class = ChangeUserInfoSerializer
+ 
+
+     def get_object(self):
+         return self.request.user
+     
+     def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+
+        response.data = {
+            'success': True,
+            'message': 'Malumotlar yangilandi',
+            'data': response.data
+        }
+        return response
+
+     def partial_update(self, request, *args, **kwargs):
+        response = super().partial_update(request, *args, **kwargs)
+
+        response.data = {
+            'success': True,
+            'message': 'Malumotlar yangilandi',
+            'data': response.data
+        }
+        return response

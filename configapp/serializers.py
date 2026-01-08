@@ -5,7 +5,7 @@ from django.contrib.auth import authenticate
 from rest_framework.exceptions import ValidationError
 from baseapp.utility import *
 from baseapp.email import *
-
+from django.contrib.auth.password_validation import validate_password
 #auth_validate
 #create
 #validate_email_phone_number
@@ -96,3 +96,70 @@ class SignUpSerializer(serializers.ModelSerializer):
 
 class VerifyCodeSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)
+
+class ChangeUserInfoSerializer(serializers.Serializer):
+      first_name = serializers.CharField(required=False , write_only = True)
+      last_name = serializers.CharField(required=False , write_only = True)
+      username = serializers.CharField(required=False , write_only = True)
+      password = serializers.CharField(required = True , write_only = True)
+      confirm_password = serializers.CharField(required = True , write_only = True)
+
+      def validate(self, data):
+          super(ChangeUserInfoSerializer , self).validate(data)
+          password = data.get('password')
+          confirm_password = data.get('confirm_password')
+
+          if password != confirm_password:
+              raise ValidationError({
+                  'success' : False,
+                  'message' : 'Parollar mos emas'
+              })
+          
+          if password:
+              validate_password(password)
+              validate_password(confirm_password)
+
+          return data
+
+      def validate_username(self , value):
+          if value.isdigit():
+              raise ValidationError('Username faqat sonlardan iborat bolishi mumkin emas')
+          
+          if len(value) < 5:
+              raise ValidationError('Username kamida 5 ta belgtidan iborat bolishi kerak')
+          
+          return value
+      
+      def validate_first_name(self , value):
+          if len(value) < 5:
+              raise ValidationError('Ism kamida 5 ta belgidan iborat bolishi kerak')
+          
+          if value.isdigit():
+              raise ValidationError('Ism faqat sonlardan iborat bolishi mumkin emas')
+          
+          return value
+      
+      def validate_last_name(self, value):
+        if len(value) < 5:
+            raise ValidationError('Familiya kamida 5 ta belgidan iborat bolishi kerak')
+
+        if value.isdigit():
+            raise ValidationError('Familiya faqat sonlardan iborat bolishi mumkin emas')
+
+        return value
+      
+      def update(self , instance , validated_data):
+          super().update(instance , validated_data)
+
+          instance.username = validated_data.get('username' , instance.username)
+          instance.last_name = validated_data.get('last_name' , instance.last_name)
+          instance.first_name = validated_data.get('first_name' , instance.first_name)
+          instance.password = validated_data.get('password' , instance.password)
+
+          if validated_data.get('password'):
+              instance.set_password(validated_data.get('password'))
+          if instance.auth_status == CODE_VERIFIED:
+              instance.auth_status = DONE
+
+          instance.save()
+          return instance
