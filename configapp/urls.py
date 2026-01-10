@@ -56,4 +56,8 @@ urlpatterns = [
     path('code-verify/' , VerifyCode.as_view()), 
     path('new-code-verify/' , NewCodeVerify.as_view()),  
     path('change-user-info/' , ChangeUserInfo.as_view()),
+    path('user-change-photo/' , UserPhotoView.as_view()),
+    path('login/' , LoginView.as_view()),
+    path('logout/' , LogoutAPIView.as_view()),
+
 ]

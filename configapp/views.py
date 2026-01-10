@@ -20,6 +20,8 @@ from django.conf import settings
 from rest_framework.generics import CreateAPIView , UpdateAPIView
 from rest_framework.views import *
 from datetime import datetime
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework import generics
 
 class SignUpView(CreateAPIView):
     queryset = User.objects.all()
@@ -127,3 +129,39 @@ class ChangeUserInfo(UpdateAPIView):
             'data': response.data
         }
         return response
+     
+
+class UserPhotoView(APIView):
+    permission_classes = (permissions.IsAuthenticated)
+    @swagger_auto_schema(request_body=PhotoSerializer)
+    def put(self , request):
+        serializers = UserPhotoSerializer(data = request.data)
+        serializers.is_valid(raise_exception=True)
+        user = self.request.user
+        serializers.update(user , validated_data = serializers.data)
+
+        data = {
+            'success' : True,
+            'message' : 'Sizning rasmingiz ozgartirildi'
+        }
+
+        return Response(data)
+    
+
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
+
+
+class LogoutAPIView(generics.GenericAPIView):
+    serializer_class = LogoutSerializer
+    permission_classes = [permissions.IsAuthenticated] 
+
+    def post(self , request):
+        serializers = self.get_serializer(data = request.data)
+        serializers.is_valid(raise_exception = True)
+        serializers.save()
+
+        return Response({
+            'success' : True,
+            'message' : 'Logout bajarildi'
+        })

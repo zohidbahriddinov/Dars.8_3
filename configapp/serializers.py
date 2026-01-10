@@ -6,6 +6,8 @@ from rest_framework.exceptions import ValidationError
 from baseapp.utility import *
 from baseapp.email import *
 from django.contrib.auth.password_validation import validate_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 #auth_validate
 #create
 #validate_email_phone_number
@@ -97,6 +99,9 @@ class SignUpSerializer(serializers.ModelSerializer):
 class VerifyCodeSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6)
 
+class PhotoSerializer(serializers.Serializer):
+      photo = serializers.ImageField()
+
 class ChangeUserInfoSerializer(serializers.Serializer):
       first_name = serializers.CharField(required=False , write_only = True)
       last_name = serializers.CharField(required=False , write_only = True)
@@ -148,18 +153,105 @@ class ChangeUserInfoSerializer(serializers.Serializer):
 
         return value
       
-      def update(self , instance , validated_data):
-          super().update(instance , validated_data)
+      def update(self, instance, validated_data):
+        instance.username = validated_data.get('username', instance.username)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.first_name = validated_data.get('first_name', instance.first_name)
 
-          instance.username = validated_data.get('username' , instance.username)
-          instance.last_name = validated_data.get('last_name' , instance.last_name)
-          instance.first_name = validated_data.get('first_name' , instance.first_name)
-          instance.password = validated_data.get('password' , instance.password)
+        password = validated_data.get('password')
+        if password:
+         instance.set_password(password)
 
-          if validated_data.get('password'):
-              instance.set_password(validated_data.get('password'))
-          if instance.auth_status == CODE_VERIFIED:
-              instance.auth_status = DONE
+        if instance.auth_status == CODE_VERIFIED:
+          instance.auth_status = DONE
 
-          instance.save()
-          return instance
+        instance.save()
+        return instance
+      
+class UserPhotoSerializer(serializers.Serializer):
+    photo = serializers.ImageField()
+
+    def update(self, instance, validated_data):
+        photo  = validated_data.get('photo' , None)
+        if photo:
+            instance.photo = photo
+            instance.auth_status = PHOTO_DONE
+
+        instance.save()
+        return instance
+    
+class LoginSerializer(TokenObtainPairSerializer):
+    
+    def validate(self, attrs):
+        userinput = attrs.get('username')
+        password = attrs.get('password')
+
+        if not userinput or not password:
+            raise ValidationError({
+                'success': False,
+                'message': 'Login va parol majburiy'
+            })
+
+        user = None
+        if check_userinputtype(userinput) == 'username':
+            user = User.objects.filter(username=userinput).first()
+
+        elif check_userinputtype(userinput) == 'email':
+            user = User.objects.filter(email__iexact=userinput).first()
+
+        elif check_userinputtype(userinput) == 'phone':
+            user = User.objects.filter(phone_namber=userinput).first()
+
+        if not user:
+            raise ValidationError({
+                'success': False,
+                'message': 'Foydalanuvchi topilmadi'
+            })
+
+        if user.auth_status in [NEW, CODE_VERIFIED]:
+            raise ValidationError({
+                'success': False,
+                'message': 'Siz hali login qilolmaysiz'
+            })
+
+        authenticated_user = authenticate(
+            username=user.username,
+            password=password
+        )
+
+        if not authenticated_user:
+            raise ValidationError({
+                'success': False,
+                'message': 'Login yoki parol xato'
+            })
+
+        token = self.get_token(authenticated_user)
+
+        return {
+            'success': True,
+            'refresh': str(token),
+            'access': str(token.access_token),
+            'auth_status': authenticated_user.auth_status,
+            'username': authenticated_user.username,
+        }
+    
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+    def validate(self, attrs):
+        self.token = attrs['refresh']
+        return attrs
+    
+    def save(self, **kwargs):
+       
+        try:
+            token = RefreshToken(self.token)
+            token.blacklist()  
+        except AttributeError:
+            raise ValidationError({
+                "detail": "Token blacklist qilinmayapti"
+            })
+        except Exception:
+            raise ValidationError({
+                "detail": "Token invalid yoki allaqachon bekor qilingan"
+            })
